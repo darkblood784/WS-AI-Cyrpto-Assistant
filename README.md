@@ -4,9 +4,25 @@ A full-stack cryptocurrency monitoring and analysis platform powered by AI. Real
 ## 🔗 Live Demo
 
 - App: [Whale Strategy AI](https://wsai.tw/)
+- Note: Demo environment with limited features enabled
+
+## ⚡ TL;DR
+
+- Full-stack AI-powered crypto platform (Next.js + FastAPI)
+- Real-time WebSocket system (10,000+ assets)
+- Production-ready (Docker, PostgreSQL, JWT auth)
+- Live demo available
   
 <img width="947" height="831" alt="image" src="https://github.com/user-attachments/assets/b43139d8-ba44-4d32-83d6-5e08728f6b8e" />
 
+## 🛠 Tech Stack
+
+- Frontend: Next.js, TypeScript, Tailwind
+- Backend: FastAPI (Python), REST APIs
+- Database: PostgreSQL
+- Infra: Docker, WebSocket
+- Auth: JWT, OAuth
+- 
 ---
 
 ## 🚀 What this project demonstrates
@@ -101,8 +117,6 @@ This project showcases **full-stack engineering expertise** across multiple doma
 ---
 
 ## 👨‍💻 My Contribution
-
-This is a **full-stack personal project** built from the ground up, demonstrating my ability to:
 
 - **Designed & Implemented Complete Architecture** - From database schema (14+ migrations) to frontend components
 - **Built Production-Grade Backend** - FastAPI with async handlers, JWT auth, SMTP integration, and external API connectivity
