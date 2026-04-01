@@ -95,6 +95,56 @@ This project showcases **full-stack engineering expertise** across multiple doma
 
 ---
 
+## 👨‍💻 My Contribution
+
+This is a **full-stack personal project** built from the ground up, demonstrating my ability to:
+
+- **Designed & Implemented Complete Architecture** - From database schema (14+ migrations) to frontend components
+- **Built Production-Grade Backend** - FastAPI with async handlers, JWT auth, SMTP integration, and external API connectivity
+- **Developed Modern Frontend** - Next.js with TypeScript, responsive design, real-time updates via WebSocket
+- **Database Management** - PostgreSQL schema design with proper indexing, foreign keys, and Alembic migrations for version control
+- **DevOps & Deployment** - Docker Compose orchestration, containerization, environment management, cloud-ready deployment
+- **Security Implementation** - Credential management, password hashing, CORS policies, audit logging, Git hygiene
+- **Code Quality** - Type safety throughout (TypeScript + Pydantic), modular architecture, comprehensive error handling
+- **Integration Engineering** - Connected third-party APIs (Coingecko, CoinMarketCap), SMTP services, WebSocket real-time feeds
+
+**Every file in this repository represents my engineering decisions and implementation.** No templates or framework boilerplate—this is purposeful, deliberate code built to solve real problems.
+
+---
+
+## ⚡ Quick Highlights
+
+| 🎯 Achievement | Details |
+|---|---|
+| **508 Lines** | Comprehensive README documenting architecture and best practices |
+| **225 Files** | Production-ready codebase with proper organization |
+| **14+ Migrations** | Version-controlled database evolution showing maturity |
+| **Full Type Safety** | 100% TypeScript frontend + Pydantic models on backend |
+| **13 Core Tables** | Well-designed PostgreSQL schema with 6 domain areas (users, portfolios, crypto data, alerts, news, compliance) |
+| **Real-time Features** | WebSocket integration for live price updates and instant notifications |
+| **Security-First** | JWT auth, bcrypt hashing, CORS protection, audit logs, no exposed secrets |
+| **Docker Ready** | Multi-container orchestration for consistent dev/staging/prod environments |
+| **API Documented** | OpenAPI/Swagger with interactive documentation at `/docs` |
+| **Scalable Design** | Async/await throughout, connection pooling, caching-ready, horizontal scaling friendly |
+
+**Technical Depth:**
+- ✅ 6 major backend modules (auth, portfolios, alerts, news, admin, public APIs)
+- ✅ Reusable React component hierarchy with proper composition
+- ✅ Comprehensive error handling with custom error codes
+- ✅ Performance-optimized queries with proper indexing strategy
+- ✅ Production-ready SMTP integration with email templating
+- ✅ Stateless backend design for horizontal scaling
+- ✅ Zero-downtime migration capability
+
+**What This Shows Recruiters:**
+- I don't just follow tutorials—I **build complete systems**
+- I understand **architectural decisions** and their tradeoffs
+- I take **security and code quality seriously**
+- I can **communicate complex ideas** clearly (see this README!)
+- I'm committed to **production readiness**, not just MVP
+
+---
+
 ## ✨ Core Features
 
 ### 📊 Real-Time Market Data & Monitoring
