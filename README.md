@@ -119,8 +119,8 @@ This project showcases **full-stack engineering expertise** across multiple doma
 ---
 
 ## 👨‍💻 My Contribution
-*Lead Full-Stack Engineer (End-to-End Ownership)*
-- Handles real-time streaming for 10,000+ assets
+**Role:** Lead Full-Stack Engineer (End-to-End Ownership)
+- Designed and implemented real-time streaming system handling 10,000+ assets
 - Supports concurrent users with async backend architecture
 - Sub-second update latency via WebSocket streaming
 - **Designed & Implemented Complete Architecture** - From database schema (14+ migrations) to frontend components
