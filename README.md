@@ -1,10 +1,6 @@
 # WS-AI Crypto Assistant
 
 A full-stack cryptocurrency monitoring and analysis platform powered by AI. Real-time market tracking, intelligent alerts, and crypto portfolio management with a modern web interface and robust backend API.
-## 🔗 Live Demo
-
-- App: [Whale Strategy AI](https://wsai.tw/)
-- Note: Demo environment with limited features enabled
 
 ## ⚡ TL;DR
 
@@ -12,6 +8,12 @@ A full-stack cryptocurrency monitoring and analysis platform powered by AI. Real
 - Real-time WebSocket system (10,000+ assets)
 - Production-ready (Docker, PostgreSQL, JWT auth)
 - Live demo available
+
+## 🔗 Live Demo
+
+- App: [Whale Strategy AI](https://wsai.tw/)
+- Note: Demo environment with limited features enabled
+
   
 <img width="947" height="831" alt="image" src="https://github.com/user-attachments/assets/b43139d8-ba44-4d32-83d6-5e08728f6b8e" />
 
@@ -22,7 +24,7 @@ A full-stack cryptocurrency monitoring and analysis platform powered by AI. Real
 - Database: PostgreSQL
 - Infra: Docker, WebSocket
 - Auth: JWT, OAuth
-- 
+  
 ---
 
 ## 🚀 What this project demonstrates
@@ -117,9 +119,12 @@ This project showcases **full-stack engineering expertise** across multiple doma
 ---
 
 ## 👨‍💻 My Contribution
-
+*Lead Full-Stack Engineer (End-to-End Ownership)*
+- Handles real-time streaming for 10,000+ assets
+- Supports concurrent users with async backend architecture
+- Sub-second update latency via WebSocket streaming
 - **Designed & Implemented Complete Architecture** - From database schema (14+ migrations) to frontend components
-- **Built Production-Grade Backend** - FastAPI with async handlers, JWT auth, SMTP integration, and external API connectivity
+- **Architected and implemented production-grade backend services** - FastAPI with async handlers, JWT auth, SMTP integration, and external API connectivity
 - **Developed Modern Frontend** - Next.js with TypeScript, responsive design, real-time updates via WebSocket
 - **Database Management** - PostgreSQL schema design with proper indexing, foreign keys, and Alembic migrations for version control
 - **DevOps & Deployment** - Docker Compose orchestration, containerization, environment management, cloud-ready deployment
