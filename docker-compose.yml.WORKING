@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: wsai_postgres
+    environment:
+      POSTGRES_DB: wsai
+      POSTGRES_USER: wsai
+      POSTGRES_PASSWORD: change_this_password
+    volumes:
+      - wsai_pgdata:/var/lib/postgresql/data
+    networks:
+      - wsai_net
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: wsai_backend:latest
+    container_name: wsai_backend
+    ports:
+      - "8010:8010"
+    environment:
+      DATABASE_URL: postgresql+psycopg://wsai:change_this_password@postgres:5432/wsai
+    depends_on:
+      - postgres
+    networks:
+      - wsai_net
+    restart: unless-stopped
+
+
+  frontend:
+    image: node:20-alpine
+    container_name: wsai_frontend
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    command: sh -lc "npm install && npm run dev -- --port 3010"
+    environment:
+      NEXT_PUBLIC_API_BASE: https://api.wsai.tw
+    depends_on:
+      - backend
+    networks:
+      - wsai_net
+    ports:
+      - "3010:3010"
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: wsai_cloudflared
+    user: "0:0"
+    command: tunnel --config /root/.cloudflared/config.yml run --protocol http2
+    restart: unless-stopped
+    networks:
+      - wsai_net
+    volumes:
+      - ./cloudflared:/root/.cloudflared:ro
+
+
+volumes:
+  wsai_pgdata:
+
+networks:
+  wsai_net:

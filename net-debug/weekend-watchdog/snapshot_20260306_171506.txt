@@ -1,0 +1,58 @@
+=== snapshot ts=20260306_171506 reason=wan_unreachable ===
+2026-03-06T17:15:06+08:00
+--- ip -br a ---
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+enp4s0           UP             192.168.100.42/24 metric 1024 fe80::1ac0:4dff:fe8c:fbb/64 
+wlo1             DOWN           
+br-230b9823ca68  UP             172.18.0.1/16 fe80::42:e9ff:fec1:375a/64 
+docker0          DOWN           172.17.0.1/16 
+br-d270a44866f4  DOWN           172.19.0.1/16 
+vethf0b1ee1@if7  UP             fe80::7407:a7ff:fe4e:e0b3/64 
+vethcb2eb43@if9  UP             fe80::c81a:d2ff:fe77:8e67/64 
+veth5ad8500@if11 UP             fe80::ecc7:e9ff:fefb:e2bf/64 
+vethef54a98@if13 UP             fe80::58c5:fcff:febd:bd2e/64 
+vetha1c23cf@if15 UP             fe80::aa:14ff:feca:87aa/64 
+veth089e4e3@if17 UP             fe80::288a:98ff:fe5c:4e82/64 
+--- ip route ---
+default via 192.168.100.99 dev enp4s0 proto dhcp src 192.168.100.42 metric 1024 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-230b9823ca68 proto kernel scope link src 172.18.0.1 
+172.19.0.0/16 dev br-d270a44866f4 proto kernel scope link src 172.19.0.1 linkdown 
+192.168.100.0/24 dev enp4s0 proto kernel scope link src 192.168.100.42 metric 1024 
+192.168.100.99 dev enp4s0 proto dhcp scope link src 192.168.100.42 metric 1024 
+--- ip neigh (gateway+server ip) ---
+192.168.100.99 dev enp4s0 lladdr f0:09:0d:2a:99:95 REACHABLE 
+--- ss -s ---
+Total: 953
+TCP:   322 (estab 26, closed 278, orphaned 0, timewait 256)
+
+Transport Total     IP        IPv6
+RAW	  1         0         1        
+UDP	  3         3         0        
+TCP	  44        36        8        
+INET	  48        39        9        
+FRAG	  0         0         0        
+
+--- docker ps ---
+NAMES              STATUS             PORTS
+wsai_frontend      Up About an hour   0.0.0.0:3010->3010/tcp, :::3010->3010/tcp
+wsai_backend       Up About an hour   0.0.0.0:8010->8010/tcp, :::8010->8010/tcp
+wsai_news_worker   Up About an hour   
+wsai_cloudflared   Up About an hour   
+wsai_postgres      Up About an hour   5432/tcp
+wsai_ollama        Up About an hour   0.0.0.0:11434->11434/tcp, :::11434->11434/tcp
+--- recent kernel net logs ---
+Mar 06 17:13:29 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: entered promiscuous mode
+Mar 06 17:13:34 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: left promiscuous mode
+Mar 06 17:13:34 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: entered promiscuous mode
+Mar 06 17:13:39 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: left promiscuous mode
+Mar 06 17:14:12 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: entered promiscuous mode
+Mar 06 17:14:17 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: left promiscuous mode
+Mar 06 17:14:17 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: entered promiscuous mode
+Mar 06 17:14:22 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: left promiscuous mode
+Mar 06 17:14:56 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: entered promiscuous mode
+Mar 06 17:15:01 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: left promiscuous mode
+Mar 06 17:15:01 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: entered promiscuous mode
+Mar 06 17:15:06 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: left promiscuous mode
+--- recent docker logs ---
+-- No entries --

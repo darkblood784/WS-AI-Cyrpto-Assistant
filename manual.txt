@@ -1,0 +1,269 @@
+📘 WSAI Infrastructure Manual (V1)
+
+Project: wsai.tw
+Stack: Docker · FastAPI · Next.js · PostgreSQL · Cloudflare Tunnel
+Server: Ubuntu 24.04
+Audience: Me (future me included)
+
+1️⃣ What I Built (Big Picture)
+
+I built a public AI web app without opening firewall ports.
+
+Architecture (mental model)
+Internet
+  ↓
+Cloudflare (DNS + HTTPS)
+  ↓
+Cloudflare Tunnel (cloudflared container)
+  ↓
+Docker Network (wsai_net)
+  ├── Frontend (Next.js)  → wsai.tw
+  ├── Backend (FastAPI)   → api.wsai.tw
+  └── Database (Postgres)
+
+Why this is powerful
+
+No public ports exposed (secure)
+
+HTTPS handled by Cloudflare
+
+Containers talk to each other via Docker DNS
+
+Easy to restart, rebuild, or migrate
+
+2️⃣ Folder Structure (IMPORTANT)
+
+Everything lives here:
+
+~/Whale_Strategy/wsai/
+
+
+Inside:
+
+wsai/
+├── backend/        # FastAPI app (Python)
+│   ├── app.py
+│   ├── requirements.txt
+│
+├── frontend/       # Next.js app
+│   ├── package.json
+│   ├── app/
+│
+├── cloudflared/    # Cloudflare tunnel secrets + config
+│   ├── cert.pem
+│   ├── <tunnel-id>.json
+│   ├── config.yml
+│
+├── docker-compose.yml
+
+
+⚠️ Never delete cloudflared/*.json or cert.pem
+That breaks the tunnel.
+
+3️⃣ Docker Services Explained (Plain English)
+🟦 Postgres
+postgres:
+  image: postgres:16
+
+
+Stores users, chats, messages (later)
+
+Private — not exposed to internet
+
+If broken:
+
+docker compose restart postgres
+docker compose logs postgres
+
+🟩 Backend (FastAPI)
+backend:
+  image: python:3.11-slim
+  command: uvicorn app:app --host 0.0.0.0 --port 8010
+
+
+API lives here
+
+Health check:
+👉 https://api.wsai.tw/health
+
+Test locally:
+
+curl http://127.0.0.1:8010/health
+
+
+If broken:
+
+docker compose logs backend
+docker compose restart backend
+
+
+Common fixes:
+
+Missing Python package → add to requirements.txt
+
+Syntax error → check backend/app.py
+
+🟨 Frontend (Next.js)
+frontend:
+  image: node:20-alpine
+  command: npm run dev -- --port 3010
+
+
+UI lives here
+
+Public URL:
+👉 https://wsai.tw
+
+Local test:
+
+curl http://127.0.0.1:3010
+
+
+If broken:
+
+docker compose logs frontend
+
+
+Common issues:
+
+package.json missing → frontend folder corrupted
+
+Next.js crashes → restart frontend
+
+🟧 Cloudflared (MOST IMPORTANT)
+cloudflared:
+  image: cloudflare/cloudflared
+  command: tunnel --config /root/.cloudflared/config.yml run
+
+
+This is the bridge between Cloudflare and Docker.
+
+Config:
+
+ingress:
+  - hostname: wsai.tw
+    service: http://wsai_frontend:3010
+  - hostname: api.wsai.tw
+    service: http://wsai_backend:8010
+
+
+Key idea:
+
+wsai_frontend and wsai_backend are Docker service names
+
+Docker DNS resolves them automatically
+
+If cloudflared breaks:
+
+docker compose logs cloudflared
+docker compose restart cloudflared
+
+
+If DNS fails:
+
+docker run --rm -it --network wsai_wsai_net alpine \
+  sh -lc "apk add bind-tools && nslookup wsai_frontend"
+
+4️⃣ How I Know Everything Works
+Internal checks
+docker compose ps
+
+
+All services must be Up.
+
+Test internal network:
+
+docker run --rm -it --network wsai_wsai_net alpine \
+  sh -lc "curl http://wsai_backend:8010/health"
+
+Public checks
+curl https://wsai.tw
+curl https://api.wsai.tw/health
+
+
+If these work → system is healthy.
+
+5️⃣ “If Something Goes Wrong” Playbook
+🔴 Site down
+
+Check containers:
+
+docker compose ps
+
+
+Restart everything:
+
+docker compose down
+docker compose up -d
+
+🔴 wsai.tw works but api.wsai.tw fails
+
+Likely backend issue.
+
+docker compose logs backend
+
+
+Fix code → restart backend.
+
+🔴 Cloudflared restarting in loop
+
+Usually permissions.
+
+Fix:
+
+chmod 644 cloudflared/config.yml
+chmod 600 cloudflared/*.json
+docker compose restart cloudflared
+
+🔴 “connection refused” in cloudflared logs
+
+Means:
+
+Frontend/backend container not running
+
+Or wrong service name
+
+Check:
+
+docker compose ps
+docker compose logs frontend
+
+6️⃣ What NOT To Do
+
+❌ Don’t edit files inside containers
+❌ Don’t expose ports publicly on firewall
+❌ Don’t delete cloudflared/*.json
+❌ Don’t rename services without updating config.yml
+
+7️⃣ What Comes Next (Roadmap)
+
+Next logical steps (in order):
+
+User login + email verification (FastAPI + Postgres)
+
+Chat UI connected to backend
+
+Save messages to DB
+
+LLM integration (local model + fallback API)
+
+Rate limits + abuse protection
+
+8️⃣ Final Truth (No sugarcoating)
+
+What you just did:
+
+Docker networking
+
+Reverse proxy without Nginx
+
+Cloudflare Tunnel
+
+Production-grade HTTPS
+
+Multi-service orchestration
+
+That’s real backend/infrastructure work — not tutorial fluff.
+
+You didn’t “accidentally” do this.
+You learned it by surviving the chaos, which is how infra people are made.

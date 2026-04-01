@@ -1,0 +1,156 @@
+Got it. Here’s a clean “handoff plan” you can paste into a new chat anytime and we’ll resume instantly without losing context.
+
+---
+
+# WSAI Project Handoff Plan (Copy/Paste)
+
+## Project context
+
+* **Domain:** wsai.tw
+* **Frontend:** Next.js in Docker, **port 3010**
+* **Backend:** FastAPI in Docker, **port 8010**
+* **DB:** Postgres
+* **Cloudflare Tunnel (cloudflared):**
+
+  * `wsai.tw` → frontend
+  * `api.wsai.tw` → backend
+* **Status:** infra is live/stable, HTTPS works. Backend `/health` works. Frontend currently shows “Crypto Chat is coming soon”.
+* **No auth, no chat UI, no AI logic yet.**
+
+## Boss requirements
+
+1. User registration (email + password)
+2. Separate **admin** and **user** accounts
+3. **Feature restrictions** for users
+4. Users can unlock restricted features via payment (subscription/entitlements)
+5. Admins are unrestricted
+
+## Core product decisions (locked)
+
+### Security rule (non-negotiable)
+
+* **Frontend is not security.** Users can bypass popups with DevTools.
+* All access control must be enforced **server-side**:
+
+  * Role checks (admin vs user)
+  * Entitlement checks (feature flags)
+  * Usage quotas and rate limits
+* Frontend only *shows* locked state; backend *blocks* restricted actions.
+
+### Plans & entitlements
+
+We use **entitlements** (permission flags stored in DB). Packages grant sets of entitlements.
+
+**Entitlements (v1)**
+
+* `CHAT_BASIC`
+* `CHAT_PRO_LIMITS`
+* `STRATEGY_BUILDER`
+* `INDICATORS_ADVANCED`
+* `EXPORTS`
+* `ALERTS` (later)
+
+**Packages (v1)**
+
+* **Free**
+
+  * Messages/day: **10**
+  * Memory: short window **4–6 messages**, no long-term memory
+  * Features: basic chat + live prices (cached) + simple indicator explanations
+  * No strategy builder, no exports, no alerts
+* **Basic (Paid)**
+
+  * Messages/day: “soft unlimited” (internally high cap like **300–500/day**, not shown)
+  * Memory: short window **20–30 messages**, limited long-term preferences
+  * Features: live prices + indicator-based analysis (RSI/MACD/trend), simple forecasts based on indicators
+  * No strategy builder, no exports, no alerts
+* **Pro (Paid)**
+
+  * Messages/day: high / effectively unlimited
+  * Memory: short window **50+**, plus long-term memory (preferences)
+  * Features: everything in Basic + **Strategy Builder mode** + advanced indicators + saved strategies + exports + alerts later
+* **Admin**
+
+  * Role `admin` bypasses all checks, unrestricted
+
+### Chat memory (mandatory, tiered)
+
+We implement 3 layers:
+
+1. **Short-term conversation memory:** last N messages (plan-based)
+2. **Long-term user memory:** summarized preferences (plan-based)
+3. **Structured tool memory:** saved strategies/watchlists/alerts (DB records, not raw chat)
+
+No “store everything forever”.
+
+### Data sources & quality rules
+
+* We will use live crypto data (CoinGecko/CoinMarketCap/TradingView etc.).
+* **Anything factual** (price, OHLCV, volume, market cap, “latest”) must come from tools/APIs.
+* If live data unavailable: bot must **say it can’t verify**, never invent numbers.
+* Quality comes from: intent routing + tool usage + structured templates, not just “a better model”.
+* Rate-limit safety: caching + backoff + provider fallback; avoid shady “key rotation to bypass ToS”.
+
+## Build sequence (next steps)
+
+### Phase 1 — Auth foundation
+
+* DB tables: users, roles, user_roles
+* Endpoints: register/login/refresh/me
+* JWT access (short-lived) + refresh (httpOnly cookie recommended)
+* Admin creation method (script/CLI)
+
+### Phase 2 — Entitlements + gating
+
+* DB tables: entitlements, user_entitlements (+ optional subscriptions later)
+* Reusable backend guards:
+
+  * `require_role("admin")`
+  * `require_entitlement("STRATEGY_BUILDER")` (admin bypass)
+* Usage quotas (messages/day, per-minute) enforced server-side
+
+### Phase 3 — Memory system
+
+* Store chat messages by thread
+* Implement short-term window per plan
+* Long-term memory as summarized user prefs (only for Basic/Pro as allowed)
+* Structured storage for strategies/watchlist
+
+### Phase 4 — Minimal product UI
+
+* Next.js pages: register/login + simple dashboard showing roles/entitlements
+* Locked tiles for Pro features
+* Minimal chat UI can come after auth+gating is in place
+
+### Phase 5 — AI + tools
+
+* Chat endpoint with intent routing
+* Live data tool calls + indicator computation backend-side
+* Structured response templates
+* Strategy Builder mode behind entitlement
+
+### Phase 6 — Payments (later)
+
+* Stripe (or provider) checkout
+* Webhook grants entitlements into DB
+* App gates off entitlement table only
+
+## Current ask from user
+
+* “Create a proper plan so we can resume in a new chat without losing progress.”
+
+---
+
+## What I need when we resume (so I can start coding immediately)
+
+Paste any of these (if available):
+
+* `docker-compose.yml`
+* backend `requirements.txt` and current `app.py`
+* any existing DB connection env vars (or how Postgres is configured)
+
+If you don’t have them handy, we can still proceed with defaults and adjust.
+
+---
+
+If you want, I can also turn this into a single-page “WSAI Spec v1” document format (still plain text) that your boss can read, but the above is already perfect as a new-chat starter.

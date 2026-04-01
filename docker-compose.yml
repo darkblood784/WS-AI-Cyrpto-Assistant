@@ -1,0 +1,119 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: wsai_ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    networks:
+      - wsai_net
+
+  postgres:
+    image: postgres:16
+    container_name: wsai_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-wsai}
+      POSTGRES_USER: ${POSTGRES_USER:-wsai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - wsai_pgdata:/var/lib/postgresql/data
+    networks:
+      - wsai_net
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: wsai_backend:latest
+    container_name: wsai_backend
+    ports:
+      - "8010:8010"
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-wsai}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-wsai}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-https://wsai.tw,https://www.wsai.tw,http://localhost:3010,http://127.0.0.1:3010}
+      MAIL_FROM: ${MAIL_FROM:-no-reply@wsai.tw}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+      SMTP_USE_SSL: ${SMTP_USE_SSL:-false}
+      VERIFY_LINK_BASE: ${VERIFY_LINK_BASE:-https://wsai.tw/verify}
+      COINGECKO_DEMO_API_KEY: ${COINGECKO_DEMO_API_KEY:-}
+      CMC_API_KEY: ${CMC_API_KEY:-}
+      OLLAMA_URL: "http://wsai_ollama:11434"
+      OLLAMA_MODEL: "llama3.1:8b"
+      OLLAMA_TIMEOUT_SECS: "12"
+
+
+      # Per-plan thread caps (production-ready)
+      MAX_THREADS_FREE: "200"
+      MAX_THREADS_PLUS: "1500"
+      MAX_THREADS_PRO: "3000"
+    depends_on:
+      - postgres
+      - ollama
+    networks:
+      - wsai_net
+    restart: unless-stopped
+    volumes:
+      - ./backend:/app
+  
+  news_worker:
+    image: wsai_backend:latest
+    container_name: wsai_news_worker
+    command: python -m app.tools.news_worker
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    networks:
+      - wsai_net
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-wsai}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-wsai}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      NEWS_POLL_SECS: "600"
+      NEWS_RETENTION_HOURS: "48"
+
+  frontend:
+    image: node:20-alpine
+    container_name: wsai_frontend
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    command: sh -lc "npm install && npm run dev -- --hostname 0.0.0.0 --port 3010"
+    environment:
+      NEXT_PUBLIC_API_BASE: https://api.wsai.tw
+    depends_on:
+      - backend
+    networks:
+      - wsai_net
+    ports:
+      - "3010:3010"
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: wsai_cloudflared
+    user: "0:0"
+    command: tunnel --config /root/.cloudflared/config.yml run --protocol http2
+    restart: unless-stopped
+    networks:
+      - wsai_net
+    volumes:
+      - ./cloudflared:/root/.cloudflared:ro
+
+
+volumes:
+  wsai_pgdata:
+  ollama:
+
+networks:
+  wsai_net:

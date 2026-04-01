@@ -1,0 +1,2 @@
+timestamp,gw_ok,wan_ok,dns_ok,client_ok,client_fail,arp_5s,dhcp_5s,rx_drop_delta,tx_drop_delta,docker_running_count
+2026-03-06T16:18:36+08:00,1,1,1,2,1,6,4,3,0,6

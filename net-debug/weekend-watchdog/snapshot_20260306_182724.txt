@@ -1,0 +1,68 @@
+=== snapshot ts=20260306_182724 reason=wan_unreachable ===
+2026-03-06T18:27:24+08:00
+--- ip -br a ---
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+enp4s0           UP             192.168.100.42/24 metric 1024 fe80::1ac0:4dff:fe8c:fbb/64 
+wlo1             DOWN           
+br-230b9823ca68  UP             172.18.0.1/16 fe80::42:e9ff:fec1:375a/64 
+docker0          DOWN           172.17.0.1/16 
+br-d270a44866f4  DOWN           172.19.0.1/16 
+vethf0b1ee1@if7  UP             fe80::7407:a7ff:fe4e:e0b3/64 
+vethcb2eb43@if9  UP             fe80::c81a:d2ff:fe77:8e67/64 
+veth5ad8500@if11 UP             fe80::ecc7:e9ff:fefb:e2bf/64 
+vethef54a98@if13 UP             fe80::58c5:fcff:febd:bd2e/64 
+veth089e4e3@if17 UP             fe80::288a:98ff:fe5c:4e82/64 
+vethd58c796@if21 UP             fe80::7c6e:beff:fe41:7b38/64 
+--- ip route ---
+default via 192.168.100.99 dev enp4s0 proto dhcp src 192.168.100.42 metric 1024 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-230b9823ca68 proto kernel scope link src 172.18.0.1 
+172.19.0.0/16 dev br-d270a44866f4 proto kernel scope link src 172.19.0.1 linkdown 
+192.168.100.0/24 dev enp4s0 proto kernel scope link src 192.168.100.42 metric 1024 
+192.168.100.99 dev enp4s0 proto dhcp scope link src 192.168.100.42 metric 1024 
+--- ip neigh (gateway+server ip) ---
+192.168.100.99 dev enp4s0 lladdr f0:09:0d:2a:99:95 REACHABLE 
+--- ss -s ---
+Total: 11784
+TCP:   10848 (estab 2188, closed 4159, orphaned 1, timewait 77)
+
+Transport Total     IP        IPv6
+RAW	  3         1         2        
+UDP	  107       107       0        
+TCP	  6689      6680      9        
+INET	  6799      6788      11       
+FRAG	  0         0         0        
+
+--- docker ps ---
+NAMES              STATUS             PORTS
+wsai_backend       Up About an hour   0.0.0.0:8010->8010/tcp, :::8010->8010/tcp
+wsai_frontend      Up 2 hours         0.0.0.0:3010->3010/tcp, :::3010->3010/tcp
+wsai_news_worker   Up 2 hours         
+wsai_cloudflared   Up 2 hours         
+wsai_postgres      Up 2 hours         5432/tcp
+wsai_ollama        Up 2 hours         0.0.0.0:11434->11434/tcp, :::11434->11434/tcp
+--- recent kernel net logs ---
+Mar 06 18:25:36 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: left promiscuous mode
+Mar 06 18:26:00 whales-Z590-AORUS-ELITE-AX kernel: [UFW BLOCK] IN=enp4s0 OUT= MAC=01:00:5e:00:00:01:f0:09:0d:2a:99:95:08:00 SRC=192.168.100.99 DST=224.0.0.1 LEN=32 TOS=0x00 PREC=0x00 TTL=1 ID=39010 DF PROTO=2 
+Mar 06 18:26:10 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: entered promiscuous mode
+Mar 06 18:26:15 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: left promiscuous mode
+Mar 06 18:26:15 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: entered promiscuous mode
+Mar 06 18:26:20 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: left promiscuous mode
+Mar 06 18:26:20 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: entered promiscuous mode
+Mar 06 18:26:40 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: left promiscuous mode
+Mar 06 18:27:14 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: entered promiscuous mode
+Mar 06 18:27:19 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: left promiscuous mode
+Mar 06 18:27:19 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: entered promiscuous mode
+Mar 06 18:27:24 whales-Z590-AORUS-ELITE-AX kernel: r8169 0000:04:00.0 enp4s0: left promiscuous mode
+--- recent docker logs ---
+Mar 06 18:26:25 whales-Z590-AORUS-ELITE-AX dockerd[2922]: time="2026-03-06T18:26:25.532606243+08:00" level=error msg="[resolver] failed to query external DNS server" client-addr="udp:127.0.0.1:43352" dns-server="udp:127.0.0.53:53" error="read udp 127.0.0.1:43352->127.0.0.53:53: i/o timeout" question=";news.google.com.\tIN\t AAAA"
+Mar 06 18:26:25 whales-Z590-AORUS-ELITE-AX dockerd[2922]: time="2026-03-06T18:26:25.532613250+08:00" level=error msg="[resolver] failed to query external DNS server" client-addr="udp:127.0.0.1:45597" dns-server="udp:127.0.0.53:53" error="read udp 127.0.0.1:45597->127.0.0.53:53: i/o timeout" question=";news.google.com.\tIN\t A"
+Mar 06 18:26:29 whales-Z590-AORUS-ELITE-AX dockerd[2922]: time="2026-03-06T18:26:29.533462282+08:00" level=error msg="[resolver] failed to query external DNS server" client-addr="udp:127.0.0.1:43016" dns-server="udp:127.0.0.53:53" error="read udp 127.0.0.1:43016->127.0.0.53:53: i/o timeout" question=";news.google.com.\tIN\t AAAA"
+Mar 06 18:26:29 whales-Z590-AORUS-ELITE-AX dockerd[2922]: time="2026-03-06T18:26:29.533497775+08:00" level=error msg="[resolver] failed to query external DNS server" client-addr="udp:127.0.0.1:54271" dns-server="udp:127.0.0.53:53" error="read udp 127.0.0.1:54271->127.0.0.53:53: i/o timeout" question=";news.google.com.\tIN\t A"
+Mar 06 18:26:33 whales-Z590-AORUS-ELITE-AX dockerd[2922]: time="2026-03-06T18:26:33.534801118+08:00" level=error msg="[resolver] failed to query external DNS server" client-addr="udp:127.0.0.1:57250" dns-server="udp:127.0.0.53:53" error="read udp 127.0.0.1:57250->127.0.0.53:53: i/o timeout" question=";news.google.com.\tIN\t A"
+Mar 06 18:26:33 whales-Z590-AORUS-ELITE-AX dockerd[2922]: time="2026-03-06T18:26:33.534861249+08:00" level=error msg="[resolver] failed to query external DNS server" client-addr="udp:127.0.0.1:35137" dns-server="udp:127.0.0.53:53" error="read udp 127.0.0.1:35137->127.0.0.53:53: i/o timeout" question=";news.google.com.\tIN\t AAAA"
+Mar 06 18:26:37 whales-Z590-AORUS-ELITE-AX dockerd[2922]: time="2026-03-06T18:26:37.535451597+08:00" level=error msg="[resolver] failed to query external DNS server" client-addr="udp:127.0.0.1:49569" dns-server="udp:127.0.0.53:53" error="read udp 127.0.0.1:49569->127.0.0.53:53: i/o timeout" question=";news.google.com.\tIN\t AAAA"
+Mar 06 18:26:49 whales-Z590-AORUS-ELITE-AX dockerd[2922]: time="2026-03-06T18:26:49.545665824+08:00" level=error msg="[resolver] failed to query external DNS server" client-addr="udp:127.0.0.1:60471" dns-server="udp:127.0.0.53:53" error="read udp 127.0.0.1:60471->127.0.0.53:53: i/o timeout" question=";news.google.com.\tIN\t AAAA"
+Mar 06 18:26:49 whales-Z590-AORUS-ELITE-AX dockerd[2922]: time="2026-03-06T18:26:49.545702855+08:00" level=error msg="[resolver] failed to query external DNS server" client-addr="udp:127.0.0.1:35065" dns-server="udp:127.0.0.53:53" error="read udp 127.0.0.1:35065->127.0.0.53:53: i/o timeout" question=";news.google.com.\tIN\t A"
+Mar 06 18:26:53 whales-Z590-AORUS-ELITE-AX dockerd[2922]: time="2026-03-06T18:26:53.546351581+08:00" level=error msg="[resolver] failed to query external DNS server" client-addr="udp:127.0.0.1:52033" dns-server="udp:127.0.0.53:53" error="read udp 127.0.0.1:52033->127.0.0.53:53: i/o timeout" question=";news.google.com.\tIN\t A"
+Mar 06 18:26:53 whales-Z590-AORUS-ELITE-AX dockerd[2922]: time="2026-03-06T18:26:53.546390654+08:00" level=error msg="[resolver] failed to query external DNS server" client-addr="udp:127.0.0.1:34017" dns-server="udp:127.0.0.53:53" error="read udp 127.0.0.1:34017->127.0.0.53:53: i/o timeout" question=";news.google.com.\tIN\t AAAA"

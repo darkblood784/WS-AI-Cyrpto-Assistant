@@ -1,0 +1,1245 @@
+WSAI PROJECT MASTER PLAN
+========================
+
+Project: WSAI (Whale Strategy AI)
+Goal: Build a secure, scalable AI chatbot platform with paid plans
+
+------------------------------------------------------------
+PHASE 0 — INFRASTRUCTURE & BASELINE (COMPLETED)
+------------------------------------------------------------
+
+Goal:
+Make sure the system is stable before building features.
+
+Completed:
+✓ wsai.tw frontend loads
+✓ api.wsai.tw/health returns OK
+✓ Docker containers restart cleanly
+✓ PostgreSQL persistent volume works
+✓ Backend connects to DB correctly
+✓ Cloudflare Tunnel routes:
+  - wsai.tw → frontend
+  - api.wsai.tw → backend
+
+Exit Rule:
+Server reboot does not break anything.
+
+Status: DONE (LOCKED — do not touch)
+
+------------------------------------------------------------
+PHASE 1 — AUTHENTICATION & ACCESS CONTROL (IN PROGRESS)
+------------------------------------------------------------
+
+This phase is split into sub-phases.
+
+========================
+PHASE 1A — AUTH CORE (COMPLETED)
+========================
+
+Goal:
+Users can register and log in safely.
+
+Completed:
+✓ Email + password registration
+✓ Secure password hashing (Argon2)
+✓ JWT access tokens
+✓ /auth/login
+✓ /auth/register
+✓ /auth/me
+✓ Password policy enforced
+✓ Email normalization
+✓ Login blocked for inactive users
+
+Status: DONE
+
+========================
+PHASE 1A.1 — EMAIL VERIFICATION (COMPLETED, SMTP PENDING)
+========================
+
+Goal:
+Prevent fake email registrations.
+
+Completed:
+✓ DB fields added:
+  - is_email_verified
+  - email_verification_token
+  - email_verification_expires_at
+✓ Secure token generation (hashed, expiring)
+✓ /auth/verify endpoint
+✓ Login blocked if email not verified (403)
+✓ Manual verification tested successfully
+
+Pending (intentionally delayed):
+- SMTP provider setup
+- Sending real verification emails
+
+Status:
+LOGIC DONE
+SMTP TO BE PLUGGED IN LATER (SAFE TO DELAY)
+
+========================
+PHASE 1B — PLANS / ENTITLEMENTS / USAGE (NEXT)
+========================
+
+Goal:
+Define what users are allowed to do and how much usage they have left.
+
+To Build:
+- Plan definitions (Free / Basic / Pro)
+- Entitlements per plan (limits + feature flags)
+- Usage tracking (daily / monthly)
+- Backend endpoints:
+  - GET /plans
+  - GET /entitlements
+  - GET /usage
+
+Rules:
+- Backend enforces limits (not frontend)
+- NO roles/admin system yet (that is Phase 2)
+- Optional (temporary): allow a simple ADMIN_EMAILS env bypass ONLY if needed for testing
+
+Exit Rule:
+Backend can answer:
+✓ What plan is this user on?
+✓ What features are allowed?
+✓ How much usage is left?
+
+Status: DONE
+
+(base) whales@whales-Z590-AORUS-ELITE-AX:~/Whale_Strategy/wsai$ docker compose exec backend alembic current
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+e83c29d0aa66 (head)
+(base) whales@whales-Z590-AORUS-ELITE-AX:~/Whale_Strategy/wsai$ docker compose exec postgres psql -U wsai -d wsai -c "select id, code from plans order by id;"
+ id | code  
+----+-------
+  1 | free
+  2 | basic
+  3 | pro
+(3 rows)
+
+(base) whales@whales-Z590-AORUS-ELITE-AX:~/Whale_Strategy/wsai$ docker compose exec postgres psql -U wsai -d wsai -c "select count(*) from usage_counters;"
+ count 
+-------
+     0
+(1 row)
+
+(base) whales@whales-Z590-AORUS-ELITE-AX:~/Whale_Strategy/wsai$ 
+
+========================
+PHASE 1C — CHAT STUB & ENFORCEMENT
+========================
+
+Goal:
+Prepare chat endpoint safely.
+
+To Build:
+- /chat stub endpoint
+- Enforce usage limits
+- Return:
+  - 403 for restricted features
+  - 429 when quota exceeded
+
+No AI logic yet — only enforcement.
+
+Exit Rule:
+Chat endpoint respects plan limits.
+
+Status: DONE
+
+------------------------------------------------------------
+PHASE 2 — ROLES (ADMIN VS USER)
+------------------------------------------------------------
+
+Goal:
+Separate privileged users from normal users, with a clear authority hierarchy suitable for a production ChatGPT-like system.
+
+To Build:
+— Role system on users:
+    — user — normal chatbot access
+    — admin — manage users
+    — owner — full system authority (admins cannot override)
+
+— Role-based access control (RBAC):
+    — Admin/owner-only API routes
+    — Hard 403 for unauthorized access
+
+— Admin management endpoints:
+    — List users (pagination + filters)
+    — View single user
+    — Update user (role, plan, active status)
+    — Manually verify email
+
+— Safety rules:
+    — Admins cannot modify owners
+    — Only owners can grant/revoke owner role
+    — System must never allow removing the last owner
+    — System must never allow removing the last admin
+
+— Audit logging (non-negotiable for production):
+    — Log every admin action (success + denied)
+    — Capture actor, target, action, before/after, IP, user agent
+
+— Promotion method:
+    — Manual DB update (bootstrap)
+    — Admin API actions (post-bootstrap)
+
+— Exit Criteria:
+    — Non-admins receive 403 on admin routes
+    — Admins can manage users but not owners
+    — Owners can manage everything
+    — All admin actions are audit-logged
+
+Status: DONE
+
+------------------------------------------------------------
+PHASE 3 — ENTITLEMENT ENFORCEMENT (FEATURE GATING)
+------------------------------------------------------------
+
+Goal:
+Lock paid features server-side (backend is the law).
+
+What we built (production MVP):
+- Plan entitlements table + model:
+  - plan_entitlements.plan_id (FK to plans)
+  - Feature flags (booleans):
+    - chat_basic
+    - indicators_basic
+    - indicators_advanced
+    - strategy_builder
+    - exports
+    - alerts
+    - long_term_memory
+- Server-side feature gating on every request (not UI-only):
+  - enforce_mode_and_quota() loads PlanEntitlement for user.plan_id
+  - has_mode() maps request mode -> entitlement boolean (MODE_TO_COLUMN)
+  - If not allowed and user not admin/owner => HTTP 403
+- Admin/Owner bypass:
+  - role == "admin" or "owner" bypasses feature gating AND quotas
+- Abuse logging on denied access:
+  - On 403, log abuse event in Postgres (reason="feature_not_allowed")
+
+Endpoints covered:
+- POST /chat (all modes)
+- POST /strategy (compat route uses mode="strategy_builder")
+
+Status: DONE ✅
+
+
+------------------------------------------------------------
+PHASE 4 — USAGE LIMITS & ANTI-ABUSE
+------------------------------------------------------------
+
+Goal:
+Protect infrastructure and AI costs (production MVP).
+
+What we built (production MVP):
+
+A) Usage limits (DB-backed, per user, per plan)
+- plan_entitlements limits (nullable ints):
+  - daily_messages_limit
+  - monthly_messages_limit
+  - per_minute_messages_limit
+- Usage counters table (Postgres):
+  - usage_counters(user_id, period_type, period_start, messages_used)
+  - period_type values: "minute", "day", "month"
+  - period_start stored as naive UTC timestamps
+- Quota enforcement (server-side):
+  - enforce_mode_and_quota() locks rows with SELECT ... FOR UPDATE
+  - Checks BEFORE increment:
+    - per-minute limit => HTTP 429 "Per-minute message quota exceeded."
+    - daily limit     => HTTP 429 "Daily message quota exceeded."
+    - monthly limit   => HTTP 429 "Monthly message quota exceeded."
+  - Increments minute/day/month counters on allowed requests
+  - Admin/Owner bypasses quotas
+
+B) Input size limits
+- Request schema validation:
+  - ChatRequest.message min_length=1
+  - ChatRequest.message max_length=4000
+
+C) Abuse logging (DB-backed)
+- Abuse events table (Postgres):
+  - abuse_events(user_id, email, ip, user_agent, endpoint, method, mode, status_code, reason, detail, created_at)
+- Logging triggers:
+  - 403 feature not allowed  => reason="feature_not_allowed"
+  - 404 thread not found     => reason="thread_not_found"
+  - 429 quotas exceeded      => reasons:
+    - "per_minute_quota_exceeded"
+    - "daily_quota_exceeded"
+    - "monthly_quota_exceeded"
+  - 500 missing entitlements => reason="missing_entitlements"
+
+D) API caching (DB-backed, Postgres)
+- api_cache table (Postgres):
+  - api_cache(user_id, mode, request_hash, response_json, expires_at, created_at)
+  - Unique constraint:
+    - (mode, request_hash, COALESCE(user_id, '0000...'))
+- Cacheable modes (MVP):
+  - indicators_basic
+  - indicators_advanced
+- Cache behavior:
+  - Stable request hash (mode + normalized message)
+  - TTL (default): 30 seconds
+  - Response returns: "cache": {"hit": true/false}
+
+E) Thread caps (production MVP safety for DB)
+- Per-plan thread caps from environment variables:
+  - MAX_THREADS_FREE
+  - MAX_THREADS_PLUS
+  - MAX_THREADS_PRO
+- Enforced server-side on thread creation
+
+Exit criteria (checked)
+- Daily quotas enforced ✅
+- Monthly quotas enforced ✅
+- Per-minute rate limit enforced ✅
+- Input length limit enforced ✅
+- Abuse events recorded ✅
+- API cache written & cache hit works ✅
+- Thread caps enforced ✅
+
+Status: DONE ✅
+
+------------------------------------------------------------
+PHASE 5 — CHAT MEMORY SYSTEM (PRODUCTION)
+------------------------------------------------------------
+
+Goal:
+Make conversations feel continuous, intelligent, and plan-aware.
+Memory must live in the database — not in Python globals.
+
+Design Principles:
+- Backend is the law
+- Memory is explicit, scoped, and controllable
+- Different plans get different memory power
+- No hallucinated memory
+- Everything auditable in DB
+
+------------------------------------------------------------
+MEMORY LAYERS
+------------------------------------------------------------
+
+1) Short-Term Context Window (ALL PLANS, plan-scaled)
+----------------------------------------------------
+Purpose:
+Maintain conversational continuity inside a thread.
+
+What it is:
+- Rolling window of recent messages for a thread
+- Loaded from DB on every request
+- Injected into model prompt
+
+How it works:
+- Messages stored in `messages` table (already exists)
+- On /chat:
+  - Load last N messages for thread_id
+  - N is plan-based:
+    - Free:   ~10–20 messages
+    - Plus:   ~40–80 messages
+    - Pro:    ~120–200 messages
+- Old messages remain in DB but are not sent to model
+
+Key rules:
+- Memory is per-thread
+- No cross-thread leakage
+- No global session memory
+- Admin/Owner bypass limits
+
+Status: DONE ✅
+
+
+2) Long-Term Memory Summaries (PAID PLANS ONLY)
+-----------------------------------------------
+Purpose:
+Preserve important context without exploding token usage.
+
+What it is:
+- Periodic summarized memory of a thread
+- Stored separately from raw messages
+- Used to “remind” the model of past context
+
+How it works:
+- Background or triggered summarization:
+  - Example trigger:
+    - every X messages
+    - or when token estimate exceeds threshold
+- Summary replaces older message blocks in prompt
+- Raw messages are never deleted
+
+Plan gating:
+- Free: ❌ no long-term memory
+- Plus: ✅ per-thread summaries
+- Pro:  ✅ per-thread + cross-thread summaries (later)
+
+DB storage:
+- New table: `thread_summaries`
+  - thread_id
+  - summary_text
+  - covered_until_message_id
+  - updated_at
+
+Key rules:
+- Summaries are additive, not destructive
+- Summaries are model-generated but human-readable
+- Can be inspected/debugged later
+
+Status: DONE ✅
+
+
+3) Structured Memory (OPT-IN, HIGH VALUE)
+-----------------------------------------
+Purpose:
+Store facts that should persist beyond conversation flow.
+
+Types:
+- User preferences (risk level, language, style)
+- Watchlists (coins, strategies)
+- Saved strategies or rules
+- System notes (admin-only)
+
+How it works:
+- Explicit save/update actions only
+- NEVER auto-inferred silently
+- Read-only unless user or system updates
+
+DB storage (planned):
+- `user_preferences`
+- `user_watchlists`
+- `saved_strategies`
+
+Plan gating:
+- Free: ❌
+- Plus: Limited structured memory
+- Pro: Full structured memory
+
+Key rules:
+- Structured memory is deterministic
+- Not mixed with chat history
+- Always injected as a separate system block
+
+Status: NOT STARTED
+
+
+------------------------------------------------------------
+WHAT PHASE 5 EXPLICITLY DOES NOT DO
+------------------------------------------------------------
+- ❌ No vector database yet
+- ❌ No semantic search
+- ❌ No Redis required
+- ❌ No background workers required (initially)
+- ❌ No cross-user memory
+- ❌ No hidden memory writes
+
+------------------------------------------------------------
+PHASE 5 EXIT RULE
+------------------------------------------------------------
+Do NOT move on until:
+
+- Threads load recent messages correctly
+- Context window respects plan limits
+- Free users do NOT get long-term memory
+- Paid users see continuity across long chats
+- Memory survives container restart
+- No Python in-memory state required
+
+Status: NOT STARTED
+
+
+------------------------------------------------------------
+PHASE 6 — CRYPTO AI CORE (THE BRAIN) — LOCKED EXECUTION PLAN
+------------------------------------------------------------
+
+Goal:
+Build a high-trust, ChatGPT-style crypto-only AI assistant.
+
+Core Principles:
+- Crypto-only scope (hard refusal outside crypto)
+- Tool-driven answers (NO hallucinated prices/indicators)
+- Deterministic data + explainable reasoning
+- Plan-aware feature enforcement
+- Backend is the source of truth
+- PostgreSQL persistence only (no Python in-memory persistence for “memory”)
+
+Hard Rules:
+❌ Do NOT let the model fetch data directly
+❌ Do NOT let any model “estimate” prices/indicators/news
+❌ Do NOT create separate prompt logic per plan (same pipeline; only backend switches)
+❌ Do NOT expose raw model output without a response contract
+✅ Tools provide facts; model provides reasoning/explanation only
+
+
+------------------------------------------------------------
+PHASE 6A — INTENT ROUTING + MODEL BACKEND SELECTION (MANDATORY)
+------------------------------------------------------------
+
+Purpose:
+Route every user message into exactly one intent, then choose the model backend safely.
+
+------------------------------------------------------------
+6A-1) INTENT CLASSIFIER (CRYPTO-ONLY)  ✅ FIRST
+------------------------------------------------------------
+
+Build:
+- Pure-python intent classifier (NO LLM needed)
+- Output object:
+  - intent: one of:
+    - token_analysis
+    - price_question
+    - indicator_request
+    - strategy_build
+    - chart_image_analysis
+    - education
+    - non_crypto
+  - symbols: list of detected tickers (BTC/ETH/SOL) or coin names mapped to tickers
+  - confidence: 0.0–1.0
+  - reason: string (for debugging/logging)
+
+Rules:
+- Non-crypto messages get a consistent refusal message
+- Prevent false ticker detection (e.g. "hi" != $HI)
+- No external APIs
+- No new tables
+- Does not change quotas/entitlements behavior
+
+Exit Rules (must pass):
+- "hi" → non_crypto (refuse)
+- "what is RSI?" → education
+- "BTC price?" → price_question + ["BTC"]
+- "analyze SOL" → token_analysis + ["SOL"]
+- "build grid strategy for ETH" → strategy_build + ["ETH"]
+
+Status: DONE ✅
+
+
+------------------------------------------------------------
+6A-2) MODEL BACKEND SELECTOR (FREE=LOCAL, PAID=CHATGPT) ✅ SECOND
+------------------------------------------------------------
+
+Build:
+- One function: choose_model_backend(user, entitlements):
+  - Free → local_backend
+  - Plus/Pro → chatgpt_backend (if configured)
+  - Admin/owner bypass allowed
+- For now, model call may remain stubbed (marker only) until Phase 6C is ready
+
+Rules:
+- Same routing + prompt pipeline for all plans
+- Only the model backend changes
+- No hardcoded secrets in code (env vars later)
+
+Exit Rules (must pass):
+- Free responses include backend marker: "local_backend"
+- Plus responses include backend marker: "chatgpt_backend"
+- Only one switch point exists (no duplicated logic)
+
+Status: DONE ✅
+
+
+------------------------------------------------------------
+PHASE 6B — LIVE MARKET DATA TOOLS (MANDATORY)
+------------------------------------------------------------
+
+Purpose:
+Provide facts deterministically so the model never invents numbers.
+
+------------------------------------------------------------
+6B-1) MARKET SNAPSHOT TOOL (ONE PROVIDER FIRST) ✅ THIRD
+------------------------------------------------------------
+
+Build:
+- Tool function: get_market_snapshot(symbol)
+- Choose ONE provider as source of truth initially (recommend CoinGecko first)
+- Returns:
+  - price
+  - 24h change
+  - 24h volume
+  - market cap
+  - timestamp (provider time or fetch time)
+- Uses api_cache in Postgres (already exists)
+- Response includes cache.hit + timestamp
+
+Rules:
+- If symbol unknown → explicit error ("Token not found")
+- NEVER invent numbers
+- Cache survives restart
+
+Exit Rules:
+- BTC snapshot works
+- SOL snapshot works
+- Invalid symbol returns clean error
+- Cache hit works (2nd call is hit)
+- Restart containers → cache still works
+
+Status: DONE ✅
+
+
+------------------------------------------------------------
+6B-2) OHLCV + INDICATORS TOOL ✅ FOURTH
+------------------------------------------------------------
+
+Build:
+- Tool function: get_ohlcv(symbol, timeframe, limit)
+- Compute indicators server-side:
+  - RSI
+  - EMA
+  - MACD
+  - SMA
+- Cache in Postgres with stable request hash
+- Return timestamps + cache.hit
+
+Rules:
+- Deterministic computation (no random)
+- Limit candle count per plan to prevent abuse
+- Fail cleanly if provider fails
+
+Exit Rules:
+- OHLCV returns candles with timestamp
+- RSI/EMA/MACD computed correctly
+- Cache works and persists
+- Plan-based limits enforced
+
+Status: DONE ✅
+
+
+------------------------------------------------------------
+PHASE 6C — CRYPTO RESPONSE CONTRACT (MANDATORY)
+------------------------------------------------------------
+
+Purpose:
+Make answers look professional and consistent (ChatGPT-style).
+
+Build:
+- One formatter that outputs these sections (when applicable):
+  1) What you asked
+  2) Market snapshot (timestamped)
+  3) Indicators & signals (timestamped)
+  4) Scenarios (bull/base/bear)
+  5) Risks + invalidation levels
+  6) Assumptions
+
+Rules:
+- No guarantees
+- No precise “tomorrow price” promises
+- If missing data → say so clearly
+- Never expose raw model output; always format
+
+Exit Rules:
+- Responses follow the contract for:
+  - token_analysis
+  - price_question
+  - indicator_request
+  - strategy_build (basic)
+- All numbers are tool-sourced + timestamped
+
+Status: NOT STARTED
+
+
+------------------------------------------------------------
+PHASE 6D — STRATEGY BUILDER (V1)
+------------------------------------------------------------
+
+Purpose:
+Convert natural language into actionable crypto strategies.
+
+Build:
+- Parse request → strategy JSON output:
+  - entry rules
+  - exit rules
+  - risk rules (stop, size, max positions)
+  - timeframe
+- Optional Pine Script generator (v1)
+- Explanation of logic and assumptions
+
+Rules:
+- No backtesting yet
+- Deterministic output
+- Plan gating enforced (free may be limited)
+
+Exit Rules:
+- Example prompts generate valid JSON
+- Pine output (if enabled) compiles logically
+- No capital guarantees
+- Clear risk warnings + invalidation
+
+Status: NOT STARTED
+
+
+------------------------------------------------------------
+PHASE 6E — IMAGE / CHART ANALYSIS (OPTIONAL, LATER)
+------------------------------------------------------------
+
+Purpose:
+Accept images (charts/screenshots) and analyze them safely.
+
+Build:
+- Upload endpoint (size-limited, type-limited)
+- Vision analysis → extract:
+  - timeframe (if visible)
+  - trend direction
+  - support/resistance (approx)
+  - visible indicators (only if visible)
+- Combine with live market snapshot + indicators
+
+Rules:
+- No guessing indicators not visible
+- Image analysis never replaces live tool data
+- Plan gating (image may be Plus/Pro)
+
+Exit Rules:
+- Upload works
+- Valid chart produces structured analysis
+- Non-chart image handled safely
+
+Status: NOT STARTED
+
+
+------------------------------------------------------------
+PHASE 6 GLOBAL EXIT RULES (DO NOT ADVANCE TO PHASE 7)
+------------------------------------------------------------
+
+Must be true:
+- Crypto-only intent routing works reliably
+- Tool-based data is used for ALL numbers
+- Cache works and survives restart
+- Response contract is consistent and readable
+- Plan-based gating works (features and usage)
+- No “invented” stats or fake price predictions
+- Everything persists in Postgres (no hidden memory)
+
+Status: NOT STARTED
+
+------------------------------------------------------------
+PHASE 7 — FRONTEND MVP (CHATGPT-LIKE UX) — IMPLEMENTATION SPEC
+------------------------------------------------------------
+
+Goal:
+Ship a production-grade UI so users can actually use WSAI.
+UI must feel premium: fast, clean, thread-based, and clearly shows plan limits.
+
+Stack (recommended):
+- Next.js (App Router) + TypeScript
+- TailwindCSS
+- shadcn/ui for consistent components
+- React Query (TanStack Query) for caching and request state
+- Zustand (or Jotai) for small UI state (selected thread, modals)
+- Optional: Framer Motion for subtle animations (not required for MVP)
+
+Non-negotiable rules:
+- Backend enforcement ONLY. Frontend never grants access, never "trusts itself".
+- UI only reflects restrictions:
+  - show locks / upgrade hints
+  - gracefully handle 403/429
+  - never hide broken states; show clear errors + retry
+- Never render "raw model output" directly if backend starts returning structured blocks.
+- Frontend must be prepared for Phase 9 (Exchange + Rules + Confirmations) without layout changes.
+
+------------------------------------------------------------
+7A — ROUTES (PAGES) — FINAL URL MAP
+------------------------------------------------------------
+
+Public:
+- /                  Landing
+- /pricing           Pricing + plan comparison (Phase 8 wires checkout)
+- /status            Service status (backend health + tool health summary)
+
+Auth:
+- /login             Login (email + password)
+- /register          Register
+- /verify-email      Verify email token + success/fail screen
+- /forgot-password   (optional) request reset
+- /reset-password    (optional) set new password
+
+App (auth required):
+- /app/dashboard     Dashboard home (plan + usage + quick actions)
+- /app/chat          Redirect to latest thread or create new
+- /app/chat/[id]     Thread view
+- /app/settings      Account settings (email, password, sessions)
+- /app/billing       Billing (Phase 8)
+- /app/admin         Admin panel (role-gated by backend)
+
+Reserved for Phase 9 (create now as disabled placeholders):
+- /app/trade/exchanges           Exchange accounts list (Phase 9B)
+- /app/trade/exchanges/new       Add exchange account (Phase 9B)
+- /app/trade/rules               Rules list (Phase 9E)
+- /app/trade/rules/new           Draft + save rule (Phase 9D/9E)
+- /app/trade/rules/[id]          Rule detail + evaluate (Phase 9F)
+- /app/trade/confirmations       Pending confirmations list (Phase 9G)
+- /app/trade/confirmations/[id]  Confirmation detail + approve/deny (Phase 9G)
+
+------------------------------------------------------------
+7B — GLOBAL LAYOUT (NO REDESIGN LATER)
+------------------------------------------------------------
+
+App Shell (always the same):
+- Left Sidebar (threads + navigation)
+- Center Main (chat OR dashboard OR screens)
+- Right Panel (context / cards / details)
+- Top Bar (search, plan badge, account menu)
+
+Left Sidebar:
+- "New chat" button
+- Thread list (infinite scroll / paginated)
+- Nav links:
+  - Dashboard
+  - Chat
+  - Billing (Phase 8)
+  - Trade (Phase 9 group, locked until entitled)
+  - Settings
+  - Admin (only for admin role)
+- Plan badge (Free/Plus/Pro) + usage mini bar
+
+Right Panel:
+- Chat: show structured cards (snapshot, indicators, news) when available
+- Trade later: show rule summary, risk caps, confirmation preview
+- Dashboard: show upgrade CTA + system status
+
+------------------------------------------------------------
+7C — DATA CONTRACTS (FRONTEND DOES NOT GUESS)
+------------------------------------------------------------
+
+Frontend consumes API only. These endpoints must exist by Phase 7 start:
+- POST /auth/login
+- POST /auth/register
+- POST /auth/logout (optional)
+- GET  /me
+- GET  /plans
+- GET  /entitlements
+- GET  /usage
+
+Chat:
+- POST /chat
+- GET  /chat/threads
+- POST /chat/threads (create)
+- GET  /chat/threads/{id}
+- GET  /chat/threads/{id}/messages
+- POST /chat/threads/{id}/messages
+- DELETE /chat/threads/{id} (optional)
+- PATCH /chat/threads/{id} (rename) (optional)
+
+Important:
+- Chat responses must support BOTH formats:
+  A) assistant: string (legacy)
+  B) assistant + blocks[] (future structured)
+Frontend must render blocks if present; otherwise render assistant string.
+
+------------------------------------------------------------
+7D — AUTH UX (MVP QUALITY)
+------------------------------------------------------------
+
+Login page:
+- email + password
+- error states: invalid creds, server down, network
+- on success: store token + route /app/chat
+
+Register page:
+- email + password
+- success: "verify your email" if verification enabled; else route to login
+
+Email verification:
+- reads token from query string
+- calls backend verify endpoint
+- shows: success → button to login
+- failure → retry + request new link (optional)
+
+Session handling:
+- If any API returns 401:
+  - clear token
+  - redirect to /login
+- Do NOT auto-refresh tokens unless backend supports it.
+
+------------------------------------------------------------
+7E — DASHBOARD UX (PLAN/USAGE FIRST)
+------------------------------------------------------------
+
+Dashboard widgets:
+1) Plan Card
+- current plan name + features list (from /plans)
+- upgrade CTA (Phase 8)
+
+2) Usage Card
+- quota usage bar + remaining (from /usage)
+- show 429 behavior guide ("upgrade or wait")
+
+3) Entitlements Card
+- show enabled feature flags (from /entitlements)
+- any locked feature displayed with a lock + upgrade CTA
+
+4) System Status Card
+- backend health
+- tools health summary (snapshot/indicators/news)
+
+------------------------------------------------------------
+7F — CHAT UX (CHATGPT-LIKE, PRODUCT-GRADE)
+------------------------------------------------------------
+
+Thread model:
+- Sidebar shows thread titles (first user message or explicit title)
+- Clicking thread loads full history
+- New Chat creates thread immediately then routes to it
+- Memory continuity:
+  - Always send thread_id to backend
+  - UI displays thread context (title + last updated)
+
+Chat center panel:
+- Message list (virtualized when large)
+- Composer input:
+  - Enter send, Shift+Enter newline
+  - file upload button placeholder (Phase 6E later)
+- Message actions:
+  - copy
+  - regenerate (Phase 7 optional if backend supports)
+  - "show details" toggles right panel cards
+
+Locked feature indicators:
+- If backend returns 403 for feature:
+  - show lock banner: "This requires Plus/Pro"
+  - show upgrade button (link /pricing or /app/billing)
+- If backend returns 429:
+  - show quota banner + next reset hint (if backend provides)
+
+Response rendering:
+- If blocks[] exists:
+  - render cards:
+    - Snapshot card (timestamp + source)
+    - Indicators card (timestamp + timeframe)
+    - News card (list + timestamps)
+    - Scenarios/Risks/Assumptions cards
+- If only assistant string exists:
+  - render as text but still allow extracting sections visually later
+
+Design requirement:
+- stop showing "debug-style" numbered dumps as the *only* UI format.
+- UI must convert tool data into cards and keep narrative as a readable summary.
+
+------------------------------------------------------------
+7G — ADMIN PANEL (BASIC, SAFE)
+------------------------------------------------------------
+
+Admin access:
+- backend must enforce role
+- frontend only hides link if /me.role != admin (still must handle 403)
+
+Admin screens (MVP):
+- Users table (paged)
+- Plans overview (read-only)
+- Usage overview (aggregate)
+- Feature flags viewer (read-only)
+
+------------------------------------------------------------
+7H — PHASE 9 COMPATIBILITY (NO REWORK LATER)
+------------------------------------------------------------
+
+Reserve navigation + routes for Trade now:
+- Exchange Accounts
+- Rules
+- Confirmations
+
+Right panel in trade screens:
+- always show:
+  - caps (max leverage, max order size)
+  - audit trail preview
+  - confirmation status
+This ensures Phase 9 flows fit the same shell.
+
+------------------------------------------------------------
+7I — MVP EXIT TESTS (FRONTEND)
+------------------------------------------------------------
+
+Exit tests:
+- Auth:
+  - register → verify → login works end-to-end
+  - invalid login shows clean error
+  - 401 forces logout + redirect
+
+- Dashboard:
+  - shows plan, usage, entitlements correctly
+  - 429 and 403 are displayed clearly
+
+- Chat:
+  - create thread
+  - send message
+  - reload page and history persists
+  - switch threads works
+  - locked feature shows lock banner, not broken UI
+
+- Admin:
+  - admin can access /app/admin
+  - normal user sees 403 and is redirected
+
+- Quality:
+  - no blank screens
+  - loading skeletons exist
+  - toasts for errors
+  - mobile responsive baseline
+
+Status: NOT STARTED
+
+
+------------------------------------------------------------
+PHASE 8 — PAYMENTS & SUBSCRIPTIONS
+------------------------------------------------------------
+
+Goal:
+Monetize safely and correctly.
+
+To Build:
+- Stripe integration
+- Checkout flow
+- Webhooks → entitlements update
+- Upgrade / downgrade handling
+- Billing history
+
+Rules:
+- Webhooks are the source of truth
+- No trust in frontend payment state
+- Entitlements always DB-driven
+
+Status: NOT STARTED
+
+------------------------------------------------------------
+PHASE 9 — EXCHANGE API INTEGRATION + TRADE EXECUTION (SAFE V1, SPOT + FUTURES)
+------------------------------------------------------------
+# Implementation Order (WSAI backend-safe build order)
+
+## Phase 9A — DB + Encryption + Audit (foundation) OKX first
+Goal: Store exchange keys + trading objects safely; no secrets ever leak.
+
+Build:
+1) Add Alembic migration + new tables:
+   - exchange_accounts
+   - trade_rules
+   - trade_orders
+   - trade_audit_events
+   - trade_confirmations   (required for safe confirm flow)
+
+2) Add encryption helpers using EXCHANGE_SECRET_KEY:
+   - encrypt_text(plaintext) -> ciphertext
+   - decrypt_text(ciphertext) -> plaintext
+   - mask_key(key) -> "***ABCD" (store api_key_last4 for display)
+
+3) Add audit logging helper:
+   - write_trade_audit_event(action, user_id, exchange_account_id, trade_rule_id, payload_json, ip, user_agent)
+
+Exit test (9A):
+- Add exchange key -> DB stores encrypted only
+- GET accounts -> returns masked key only (api_key_last4), never secrets
+- Logs never include key/secret/passphrase
+- Audit events created for: key_added, key_updated, key_deleted, key_tested_attempt
+
+---
+
+## Phase 9B — Exchange Accounts CRUD + Entitlements gating
+Goal: Manage exchange connections securely.
+
+Build endpoints (auth required):
+- POST   /exchanges/accounts
+- GET    /exchanges/accounts
+- PATCH  /exchanges/accounts/{id}
+- DELETE /exchanges/accounts/{id}
+
+Rules:
+- Enforce entitlement: exchanges_basic == true else 403
+- No plaintext storage
+- Detect + store supports_json (spot/futures) when possible
+
+Exit test (9B):
+- Non-entitled user gets 403 and denial logged
+- Create/list/update/disable/delete works
+- API responses never leak secrets
+
+---
+
+## Phase 9C — Connector Layer (tools/exchanges)
+Goal: One consistent interface for all exchanges.
+
+Build:
+1) backend/app/tools/exchanges/base.py (interface)
+2) backend/app/tools/exchanges/registry.py (exchange_code -> connector)
+3) Implement ONE exchange connector first (binance OR okx OR bybit)
+4) Add /exchanges/accounts/{id}/test endpoint (uses connector.test_credentials)
+
+Optional read-only endpoints (still Phase 9C):
+- GET /exchanges/accounts/{id}/balances
+- GET /exchanges/accounts/{id}/positions
+
+Rules:
+- Connector does no strategy logic; only actions requested
+- Every connector call writes trade_audit_events
+- Connector errors are sanitized (no secret leakage)
+
+Exit test (9C):
+- Valid keys pass test, invalid keys fail cleanly
+- Balances fetch works
+- Positions fetch works (if futures supported)
+- Audit events written for every call
+
+---
+
+## Phase 9D — Chat-to-Rule Conversion (ChatGPT-assisted, backend-validated)
+Goal: Convert "anything user types" into safe structured Rule JSON.
+
+Build:
+1) Define Pydantic schema for RuleV1 (strict):
+   - allowed indicator names whitelist
+   - allowed ops whitelist
+   - Decimal for money/qty fields
+   - futures requires leverage + margin_type
+   - validate allowed markets via entitlements
+
+2) Add “rule drafting” LLM helper (UNTRUSTED output):
+   - Input: user free text strategy
+   - Output: (a) clarification questions OR (b) draft rule_json + explanation
+   - Backend never trusts it until validation passes
+
+3) Add endpoint:
+- POST /trade/rules/draft   (returns questions or draft json; DOES NOT SAVE)
+
+4) Add “confirm save rule” endpoint:
+- POST /trade/rules         (requires validated rule_json; SAVES)
+
+Rules:
+- If draft invalid -> return validation errors + ask clarification
+- User must explicitly confirm to save any executable rule
+
+Exit test (9D):
+- Draft endpoint returns either questions or a JSON proposal
+- Saving requires backend validation; unsafe/incomplete rules rejected
+- No trades executed in 9D
+
+---
+
+## Phase 9E — Rule Storage + Management
+Goal: Save/load/edit rules without execution yet.
+
+Build endpoints:
+- POST   /trade/rules
+- GET    /trade/rules
+- GET    /trade/rules/{id}
+- PATCH  /trade/rules/{id}
+- DELETE /trade/rules/{id}
+
+Rules:
+- Enforce caps: max_rules, allowed_markets_json, max_leverage, etc.
+- Enforce mode rules:
+  - paper/confirm/auto must be plan-gated
+  - auto cannot be enabled unless entitlement allows
+
+Exit test (9E):
+- Invalid rule rejected with clear error
+- Max rules enforced
+- Futures leverage cap enforced
+- Rules load correctly
+
+---
+
+## Phase 9F — Deterministic Rule Evaluator (no background worker)
+Goal: Evaluate rule conditions using your existing tools.
+
+Build:
+1) evaluator.py:
+   - fetch snapshot + indicators required by rule.when[]
+   - evaluate conditions deterministically
+   - return reason_trace (pass/fail per condition)
+   - enforce cooldown + max_trades_per_day
+
+2) endpoint:
+- POST /trade/rules/{id}/evaluate
+
+Rules:
+- If any required data missing -> no trigger
+- Same inputs -> same result
+- Every evaluation logs audit event: rule_evaluated
+
+Exit test (9F):
+- Deterministic decision + reason trace
+- Cooldown works
+- Max trades/day enforced
+- Audit events written
+
+---
+
+## Phase 9G — Confirm Flow (default safe trading)
+Goal: Trigger -> ask user -> execute only on explicit confirmation.
+
+Build:
+1) trade_confirmations table is REQUIRED
+2) When rule triggers in confirm mode:
+   - create trade_confirmations row (pending, expires_at)
+   - create trade_orders row in "created" state with request_json preview (no submit)
+   - return preview to user
+
+3) confirmation endpoint (server-driven, not text parsing):
+- POST /trade/confirmations/{id}/approve
+- POST /trade/confirmations/{id}/deny
+
+Chat integration (later):
+- /chat "yes/no" routes to approve/deny ONLY if a pending confirmation exists for that thread/user
+
+Rules:
+- Confirm requires entitlement trade_execute_confirm
+- Idempotency key prevents duplicates
+- Confirmation expires cleanly
+
+Exit test (9G):
+- Trigger -> pending confirmation created
+- Approve executes exactly once
+- Deny cancels cleanly
+- Duplicate approve does not double-submit
+
+---
+
+## Phase 9H — Execution Plumbing (real orders)
+Goal: Place real orders ONLY through controlled path.
+
+Build:
+1) place_order() in connector
+2) submit flow:
+   - update trade_orders status: submitted/filled/rejected
+   - store exchange response_json
+   - write audit events: trade_submitted, trade_result
+
+Rules:
+- Validate order caps server-side (max_order_usd, max_position_usd)
+- Enforce leverage/margin caps server-side
+- Never submit order without explicit confirmation unless auto mode allowed
+
+Exit test (9H):
+- Confirmed order submits to exchange
+- trade_orders updated correctly
+- audit trail complete
+
+---
+
+## Phase 9I — Auto Execution (last)
+Goal: Auto trade only when explicitly enabled + plan allows.
+
+Rules:
+Auto mode allowed only if ALL true:
+- rule.mode == "auto"
+- entitlement trade_execute_auto == true
+- user acknowledged risk flag stored on the rule
+- cooldown + caps + max trades/day satisfied
+
+Exit test (9I):
+- Auto rules trigger without confirmation ONLY when allowed
+- Auto trades are blocked otherwise
+- Every auto trade audited
+
+------------------------------------------------------------
+CURRENT PROJECT POSITION
+------------------------------------------------------------
+
+✓ Phase 0 — DONE
+✓ Phase 1A — DONE
+✓ Phase 1A.1 — DONE (SMTP later)
+→ NEXT: Phase 1B (Plans / Entitlements / Usage)
+
+------------------------------------------------------------
+IMPORTANT RULE
+------------------------------------------------------------
+
+Do NOT move to chat, UI, or payments
+until Phase 1B and 1C are complete.
+
+This avoids rewrites and tech debt.
