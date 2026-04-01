@@ -1,6 +1,11 @@
 # WS-AI Crypto Assistant
 
 A full-stack cryptocurrency monitoring and analysis platform powered by AI. Real-time market tracking, intelligent alerts, and crypto portfolio management with a modern web interface and robust backend API.
+## 🔗 Live Demo
+
+- App: [Whale Strategy AI](https://wsai.tw/)
+  
+<img width="947" height="831" alt="image" src="https://github.com/user-attachments/assets/b43139d8-ba44-4d32-83d6-5e08728f6b8e" />
 
 ---
 
@@ -236,7 +241,7 @@ This is a **full-stack personal project** built from the ground up, demonstratin
 
 1. **Clone and Setup**
    ```bash
-   git clone https://github.com/darkblood784/WS-AI-Cyrpto-Assistant.git
+   git clone https://github.com/darkblood784/WS-AI-Crypto-Assistant.git
    cd wsai
    ```
 
