@@ -13,6 +13,8 @@
 *.pfx
 *.p12
 secrets.json
+cloudflared/
+tunnel_creds/
 .DS_Store
 .vscode/settings.json
 
